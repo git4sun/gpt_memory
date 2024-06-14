@@ -1,0 +1,2 @@
+include README.md
+include gpt_memory/db_config.json
