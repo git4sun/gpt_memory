@@ -4,8 +4,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from openai import OpenAI
 from rank_bm25 import BM25Okapi
 from sklearn.feature_extraction.text import TfidfVectorizer
-from db import DB
-from gpt import GPT
+from .db import DB
+from .gpt import GPT
 import re
 from rank_bm25 import BM25Okapi
 import tiktoken as tt
@@ -14,10 +14,15 @@ import json
 class Memory:
     def __init__(self, model='gpt-3.5-turbo-1106', conf='db_config.json'):
         self.db = DB() 
-        with open(conf) as config_file:
-            config = json.load(config_file)
+        
+        try:
+            with open(conf) as config_file:
+                config = json.load(config_file)
+            db_url = config.get('db_url', 'sqlite:///memory.db')
+        except FileNotFoundError:
+            db_url = 'sqlite:///memory.db'
 
-        self.db = DB(config['db_url'])
+        self.db = DB(db_url)
         self.gpt = GPT()
         self.enc = tt.encoding_for_model(model)
 
@@ -184,7 +189,7 @@ class Memory:
         now = datetime.now()
         t_lambda = 0.01
         for message_id, message_details in history.items():
-            print(message_id, message_details['ts'])
+            # print(message_id, message_details['ts'])
             # 1. Time lapse to now and calculate exponential decay factor as function of recency
             message_time = message_details['ts']
             time_lapse = (now - message_time).total_seconds()/3600   # Seconds
@@ -203,10 +208,10 @@ class Memory:
             abstraction_levels = 1 if final_score > 0.66 else 2 if final_score > 0.33 else 3
 
             final_scores[message_id] = [final_score, abstraction_levels]
-            print(message_id, time_lapse, time_decay, relevance_decay, embedding_distance, final_score)
+            # print(message_id, time_lapse, time_decay, relevance_decay, embedding_distance, final_score)
 
         # Display debugging information
-        print(f"{'MID':<5} {'cont':<5} {'followup':<8} {'embedding':<10} {'bm25':<5} {'abs':<4} {'score':<5} {'Text':<20}")
+        # print(f"{'MID':<5} {'cont':<5} {'followup':<8} {'embedding':<10} {'bm25':<5} {'abs':<4} {'score':<5} {'Text':<20}")
         inputs = []
         for mid in history:
             cont = history[mid]['continued']
@@ -216,7 +221,7 @@ class Memory:
             abs_level = final_scores[mid][1] if mid in final_scores else 0
             score = round(final_scores[mid][0], 4) if mid in final_scores else 0
             text = history[mid]['text'].replace('\n', ' ')
-            print(f"{mid:<5} {cont:<5} {followup:<8} {embedding:<10} {bm25:<5} {abs_level:<4} {score:<5} {text:<20}")
+            # print(f"{mid:<5} {cont:<5} {followup:<8} {embedding:<10} {bm25:<5} {abs_level:<4} {score:<5} {text:<20}")
             inputs.append([mid,cont,followup,embedding,bm25,abs_level,score])
 
         ts = datetime.now()
@@ -240,7 +245,7 @@ class Memory:
         result = self.db.get_abstract(level, message_id)
 
         if result and result[0]:
-            print(f"Abstraction already exists for message ID {message_id}.")
+            # print(f"Abstraction already exists for message ID {message_id}.")
             return result[0]
         else:
             # If abstraction doesn't exist, generate it using GPT
@@ -249,7 +254,7 @@ class Memory:
 
             self.db.update_abstract(message_id, abstraction_text, level)
 
-            print(f"Generated and stored abstraction for message ID {message_id}.")
+            # print(f"Generated and stored abstraction for message ID {message_id}.")
             return abstraction_text
 
 
@@ -323,8 +328,8 @@ class Memory:
         }
 
         history = self.db.read_mems(user_id, limit=1000)  # Assuming 1000 is enough to cover relevant history
-        for h in history:
-            print(h, ' > ', type(history[h]['id']), type(history[h]['ts']), history[h]['role'])
+        # for h in history:
+        #     print(h, ' > ', type(history[h]['id']), type(history[h]['ts']), history[h]['role'])
 
         response = ''
         # If history is empty, directly interact with GPT ChatCompletion
