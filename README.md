@@ -22,12 +22,12 @@ pip install gpt_memory
 
 To start using GPT Memory, import the `Memory` class and process a user message:
 
-\`\`\`python
+```python
 from gpt_memory import Memory
 
 m = Memory()
 status, response = m.process_message('user_message')
-\`\`\`
+```
 
 ### Command Line Chat Interface
 
@@ -41,7 +41,7 @@ python ui.py
 
 Here’s a simple example of how to use the `Memory` class:
 
-\`\`\`python
+```python
 from gpt_memory import Memory
 
 # Initialize the memory system
@@ -53,7 +53,7 @@ status, response = memory_system.process_message('Hello, how are you?')
 # Print the status and response
 print(f"Status: {status}")
 print(f"Response: {response}")
-\`\`\`
+```
 
 ## Contributing
 
