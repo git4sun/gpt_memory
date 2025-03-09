@@ -1,4 +1,4 @@
-from memory import Memory
+from gpt_memory.memory import Memory
 import re
 def user_interaction():
     m = Memory()

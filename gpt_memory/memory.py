@@ -12,7 +12,7 @@ import tiktoken as tt
 import json
 
 class Memory:
-    def __init__(self, model='gpt-3.5-turbo-1106', conf='db_config.json'):
+    def __init__(self, model='gpt-4o-mini', conf='db_config.json'):
         self.db = DB() 
         
         try:
@@ -23,8 +23,9 @@ class Memory:
             db_url = 'sqlite:///memory.db'
 
         self.db = DB(db_url)
-        self.gpt = GPT()
-        self.enc = tt.encoding_for_model(model)
+        self.model = model
+        self.gpt = GPT(model=self.model)
+        self.enc = tt.get_encoding('o200k_base')
 
     def label_followup_messages(self, history, current_message_text):
         continuation_scores = {}
@@ -33,22 +34,17 @@ class Memory:
             
             prompt = f"Given the previous message: '{previous_text}', how likely is the following message a continuation? '{current_message_text}' Please provide a score from 0 to 1, where 1 is very likely and 0 is not likely. Give a direct answer with a float value."
             
-            continuation_score = self.ask_gpt_for_continuation_score(prompt)
+            continuation_score = self.get_continuation_score(prompt)
             
             continuation_scores[message_id] = continuation_score
 
         sorted_scores = sorted(continuation_scores.items(), key=lambda item: item[1], reverse=True)
         return sorted_scores
 
-    def ask_gpt_for_continuation_score(self, prompt):
+    def get_continuation_score(self, prompt):
         """
-        Use OpenAI's GPT-4 to determine the likelihood of the current message being a followup to the previous one.
-
-        Parameters:
-        - prompt: String, the prompt to send to GPT-4.
-
-        Returns:
-        - A float representing the score of being a continuation (0 to 1).
+        Ask GPT to determine the likelihood of the current message being a followup to the previous one.
+        TODO: change to LangChain and pydantic parsing output results
         """
         try:
             response = self.gpt.query(prompt)
@@ -64,47 +60,9 @@ class Memory:
             print(f"Error calling OpenAI API: {e}")
             return 0  # Consider a default score or error handling
 
-    def ask_gpt_if_followup(self, previous_message, current_message):
-        """
-        Use OpenAI's GPT-4 to determine if the current message is a followup to the previous one.
-
-        Parameters:
-        - previous_message: String, the content of the previous message in the conversation.
-        - current_message: String, the content of the current message.
-
-        Returns:
-        - True if GPT-4 determines the message is a followup, False otherwise.
-        """    
-        # Formulate the prompt for GPT-4
-        prompt = f"Given the previous message: '{previous_message}', is the following message a follow-up? '{current_message}' Please answer 'yes' or 'no'."
-
-        try:
-            messages=[
-                        {"role": "system", "content": "You need to determine if the current message is a follow-up to the previous one."},
-                        {"role": "user", "content": prompt}
-                    ]
-            response = self.gpt.gpt_msgs(messages)
-            
-            # Interpret GPT-4's response to extract a yes or no answer
-            response_text = response.choices[0].message['content'].strip().lower()
-            if "yes" in response_text:
-                return True
-            else:
-                return False
-        except Exception as e:
-            print(f"Error calling OpenAI API: {e}")
-            return False  # Proper error handling should be considered in a real implementation
-
-
     def get_message_embedding(self, message):
         """
         Request GPT embedding API to get embeddings for the input message.
-
-        Parameters:
-        - message: String, the text message for which to get the embedding.
-
-        Returns:
-        - An embedding vector for the message.
         """
         try:
             return self.gpt.embeddings(message)
@@ -118,70 +76,36 @@ class Memory:
             h_embedding = message_details['embedding']
             
             if h_embedding is not None:
-                distance = self.calculate_distance(current_embedding, np.array(h_embedding))
+                # Convert embeddings to numpy arrays and ensure they are 2D
+                emb1 = np.array(current_embedding).reshape(1, -1)
+                emb2 = np.array(h_embedding).reshape(1, -1)
+                # Calculate dot product
+                dot_product = np.dot(emb1, emb2.T)[0][0]
+                # Calculate magnitudes
+                emb1_norm = np.linalg.norm(emb1)
+                emb2_norm = np.linalg.norm(emb2)
+                # Compute cosine similarity
+                distance = dot_product / (emb1_norm * emb2_norm)
                 embedding_distances[message_id] = distance
         
         return embedding_distances
-
-
-    def calculate_distance(self, embedding1, embedding2):
-        """Calculate the cosine similarity between two embeddings."""
-        return cosine_similarity([embedding1], [embedding2])[0][0]
-
-
-
-    def get_bm25_scores(self, corpus, query):
-        """
-        Calculate BM25 scores between a corpus of documents and a query document.
-
-        Parameters:
-        - corpus: A list of documents (strings).
-        - query: A single document (string) to compare against the corpus.
-
-        Returns:
-        - BM25 scores for each document in the corpus compared to the query.
-        """
-        
-        tokenized_corpus = [self.enc.encode(doc) for doc in corpus]
-        bm25 = BM25Okapi(tokenized_corpus)
-        query_tokens = self.enc.encode(query)
-        scores = bm25.get_scores(query_tokens)
-        return scores
 
     def calculate_bm25_and_sort(self, history, current_message_text):
         historical_texts = [details['text'] for details in history.values()]
         historical_ids = list(history.keys())
 
-        bm25_scores = self.get_bm25_scores(historical_texts, current_message_text)
+        tokenized_corpus = [self.enc.encode(doc) for doc in historical_texts]
+        bm25 = BM25Okapi(tokenized_corpus)
+        query_tokens = self.enc.encode(current_message_text)
+        bm25_scores = bm25.get_scores(query_tokens)
         
         id_score_pairs = dict(zip(historical_ids, bm25_scores))
         return id_score_pairs
-
-    def get_recent_messages(self, history, limit=10):
-        # Sort the keys of the history dictionary in descending order
-        sorted_keys = sorted(history.keys(), reverse=True)
-        
-        # Get the first 10 keys (most recent based on your description)
-        recent_keys = sorted_keys[:limit]
-        
-        # Create a new dictionary with these keys and their corresponding values
-        recent_history = {key: history[key] for key in recent_keys}
-        
-        return recent_history
 
     def prepare_context(self, history, followups, embedding_distances, bm25_scores):
         """
         Prepare context by calculating a final score for each message in history based on
         time lapse, relevance decay, and embedding weighting.
-
-        Parameters:
-        - history: Dictionary of message history.
-        - followups: Sorted list of tuples (message_id, followup_score).
-        - embedding_distances: Sorted list of tuples (message_id, embedding_distance).
-        - bm25_scores: Sorted list of tuples (message_id, bm25_score).
-
-        Returns:
-        - Dictionary of message IDs mapped to their abstraction level based on the final score.
         """
         final_scores = {}
 
@@ -256,8 +180,6 @@ class Memory:
 
             # print(f"Generated and stored abstraction for message ID {message_id}.")
             return abstraction_text
-
-
     
     def generate_abstraction_with_gpt(self, text, n_tokens):
         """
@@ -279,13 +201,6 @@ class Memory:
     def prepare_prompt(self, history, scores):
         """
         Prepare a prompt for GPT using the history and scores, incorporating the abstraction level for each message.
-
-        Parameters:
-        - history: A dictionary of message history, keyed by message ID.
-        - scores: A dictionary of message IDs mapped to their calculated scores and abstraction levels.
-
-        Returns:
-        - A string prompt for GPT.
         """
         prompt_lines = []
 
@@ -302,13 +217,28 @@ class Memory:
 
         return prompt
     
-    def process_message(self, message, user_id=0):
+    def relevance_module(self, message_data, limit=100):
+        history = self.db.read_mems(message_data['user_id'], limit=limit)
+
+        if len(history) < 1:
+            prompt = ''
+        else:
+            recent_keys = sorted(history.keys(), reverse=True)
+            recent_history = {key: history[key] for key in recent_keys}
+            followups = self.label_followup_messages(recent_history, message_data['text']) 
+            if followups[0][1] > 0.8: message_data['continued'] = followups[0][0]
+            # Step 2.2: Calculate embedding similarity score
+            top_100_embeddings = self.calculate_embedding_distance(message_data['embedding'], history)
+
+            # Step 2.3: Calculate text relevance score using BM25
+            top_100_bm25 = self.calculate_bm25_and_sort(history, message_data['text'])
+            scores = self.prepare_context(history, {f[0]:f[1] for f in followups}, top_100_embeddings, top_100_bm25)
+            prompt = self.prepare_prompt(history, scores)
+        return prompt
+    
+    def process_message(self, message:str, user_id:int=0)->tuple[int, str]:
         """
         Processes the input message and generates a response based on historical interactions.
-        
-        Parameters:
-        - message: The current message to process.
-        - user_id: Identifier for the user to fetch history for.
         """
 
         current_ts = datetime.now()  # Format timestamp
@@ -327,28 +257,17 @@ class Memory:
             'user_id': str(user_id)  # Ensure user_id is a string if your schema expects it
         }
 
-        history = self.db.read_mems(user_id, limit=1000)  # Assuming 1000 is enough to cover relevant history
-        # for h in history:
-        #     print(h, ' > ', type(history[h]['id']), type(history[h]['ts']), history[h]['role'])
-
         response = ''
+        # Step 2: Call Relevance module to get the most relevant messages
+        prompt = self.relevance_module(message_data)
         # If history is empty, directly interact with GPT ChatCompletion
-        if len(history) < 1:
+        if len(prompt) < 1:
             # Extract and return the GPT-generated response
             response = self.gpt.gpt_text(message)
         else:
-            # Step 2: Determine if current message is a follow-up for the last 10 messages
-            recent_history = self.get_recent_messages(history)  # Get the most recent 10 messages
-            followups = self.label_followup_messages(recent_history, message) 
-            if followups[0][1] > 0.8: message_data['continued'] = followups[0][0]
-            # Step 3: Calculate embedding similarity score
-            top_100_embeddings = self.calculate_embedding_distance(current_embedding, history)
-
-            # Step 4: Calculate text relevance score using BM25
-            top_100_bm25 = self.calculate_bm25_and_sort(history, message)
-            scores = self.prepare_context(history, {f[0]:f[1] for f in followups}, top_100_embeddings, top_100_bm25)
-            prompt = self.prepare_prompt(history, scores)
             response = self.gpt.gpt_text(prompt + message)
+            # Step 3: Record all the data to the database
+            # Step 4: get Feedback from the user
             # Step 5: Placeholder for getting abstraction level of each history message
             # Assuming the function is called get_abstraction_level, which is not implemented here
             # abstraction_levels = [get_abstraction_level(msg, followups, embedding_distances, bm25_scores) for msg in history]
@@ -384,6 +303,9 @@ class Memory:
 
     def show_mem(self):
         h = self.db.read_mems()
+        for mid in h:
+            if 'embedding' in h[mid]:
+                del h[mid]['embedding']
         return h
     
     def delete_mem(self, ids):

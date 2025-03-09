@@ -3,7 +3,7 @@ import json
 
 class GPT:
 
-    def __init__(self, model='gpt-3.5-turbo-1106'):
+    def __init__(self, model='gpt-4o-mini'):
         self.client = OpenAI()
         self.model = model
 

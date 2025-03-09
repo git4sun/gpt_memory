@@ -51,7 +51,7 @@ class DB:
         session.close()
         return mem.id
 
-    def read_mems(self, user_id=0, limit=100):
+    def read_mems(self, user_id=0, limit=100)->dict[int, dict]:
         """Retrieve message history for a given user, returned as a dictionary keyed by message ID."""
         session = self.Session()
         mems = session.query(Mem).filter_by(user_id=user_id).order_by(Mem.ts.desc()).limit(limit).all()
