@@ -7,7 +7,7 @@ setup(
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     author='Yang Sun',
-    author_email='yangsun.com@gmail.com',
+    author_email='sun@raaslabs.com',
     url='https://github.com/git4sun/gpt_memory',
     packages=find_packages(include=['gpt_memory', 'gpt_memory.*']),
     install_requires=[
