@@ -28,7 +28,7 @@ To start using GPT Memory, import the `Memory` class and process a user message:
 from gpt_memory import Memory
 
 m = Memory()
-status, response = m.process_message('user_message')
+response = m.process_message('user_message')
 ```
 
 ### Command Line Chat Interface
@@ -50,10 +50,9 @@ from gpt_memory import Memory
 memory_system = Memory()
 
 # Process a user message
-status, response = memory_system.process_message('Hello, how are you?')
+response = memory_system.process_message('Hello, how are you?')
 
 # Print the status and response
-print(f"Status: {status}")
 print(f"Response: {response}")
 ```
 
@@ -72,4 +71,4 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## Contact
 
-For any questions or inquiries, please contact [your.email@example.com](mailto:your.email@example.com).
+For any questions or inquiries, please contact [sun@raaslabs.com](mailto:sun@raaslabs.com).
