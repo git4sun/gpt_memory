@@ -1,12 +1,14 @@
 # GPT Memory
 
-GPT Memory is a package that stores historical memory of your ChatGPT conversations and uses these memories to improve subsequent interactions. The system automatically classifies the memories and generates abstracts to complement the GPT context limitations.
+GPT Memory is a package that stores historical memory of your LLM conversations and uses these memories to improve subsequent interactions. The system automatically classifies the memories and generates abstracts to behave like how human making conversations.
 
 ## Features
 
 - **Historical Memory Storage**: Stores and manages historical chat data.
 - **Automatic Classification**: Automatically classifies chat memories for better organization.
 - **Abstract Generation**: Generates abstracts of past conversations to enhance GPT's context handling.
+- **Mood detection: Check user emotional status and store in history chat data.
+- **Context generation: Generates context for current message based on historical conversation.
 
 ## Installation
 
