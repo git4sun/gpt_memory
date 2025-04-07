@@ -44,6 +44,7 @@ class DB:
         """Insert a new record into the 'mem' table."""
         session = self.Session()
         data['embedding'] = pickle.dumps(data['embedding']) if 'embedding' in data and data['embedding'] is not None else None
+        data['labels'] = pickle.dumps(data['labels']) if 'labels' in data and data['labels'] is not None and data['labels'] != [] else None
         mem = Mem(**data)
         session.add(mem)
         session.commit()
@@ -119,6 +120,19 @@ class DB:
         result = session.query(Mem.text).filter(Mem.id == message_id).scalar()
         session.close()
         return result
+    
+    def get_message_by_id(self, column, message_id):
+        """
+        Retrieve message object by its ID.
+        """
+        session = self.Session()
+        if column == 'id':
+            mem = session.query(Mem).filter(Mem.id == message_id).first()
+        else:
+            mem = session.query(Mem).filter(Mem.continued == message_id).first()
+        session.close()
+        print(f'continued: {message_id} -> {mem}')
+        return self._row_to_dict(mem) 
 
     def get_abstract(self, level, message_id):
         """
@@ -157,7 +171,7 @@ class DB:
             'role': row.role,
             'ts': row.ts,
             'categories': row.categories,
-            'labels': row.labels,
+            'labels': pickle.loads(row.labels) if row.labels else [],
             'embedding': pickle.loads(row.embedding) if row.embedding else None,
             'continued': row.continued,
             'level1': row.level1,
