@@ -31,14 +31,6 @@ m = Memory()
 response = m.process_message('user_message')
 ```
 
-### Command Line Chat Interface
-
-You can also run the command line chat interface to interact with GPT Memory:
-
-```bash
-python ui.py
-```
-
 ## Example
 
 Here’s a simple example of how to use the `Memory` class:
