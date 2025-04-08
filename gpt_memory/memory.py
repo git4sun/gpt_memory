@@ -1,17 +1,9 @@
 from datetime import datetime
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
-from openai import OpenAI
-from rank_bm25 import BM25Okapi
-from sklearn.feature_extraction.text import TfidfVectorizer
 from .db import DB
 from .gpt import GPT
 import tiktoken as tt
 import json
-from pydantic import BaseModel, Field
-from langchain_openai import ChatOpenAI
-from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.prompts import PromptTemplate
 from sentence_transformers import SentenceTransformer
 
 class Memory:
@@ -258,7 +250,7 @@ class Memory:
             if debug: print(f'[relevance_module] Follow ups in history: {followups}')
 
             message_data = self.eval_mood(message_data, history, followups)
-            if followups[0][1] >= self.sim_threshold: message_data['continued'] = followups[0][0]
+            if len(followups)>0 and followups[0][1] >= self.sim_threshold: message_data['continued'] = followups[0][0]
             if debug: print(f'[relevance_module] Current Mood: ', message_data['labels'])
 
             followups = {f[0]:f[1] for f in followups}
@@ -315,7 +307,7 @@ class Memory:
             'ts': current_ts,
             'categories': '',  # Adjust according to your schema
             'labels': '',  # Adjust according to your schema
-            'embedding': current_embedding,  # Placeholder, adjust as needed
+            'embedding': self.get_message_embedding(response),  # Placeholder, adjust as needed
             'continued': new_mid,  # response from AI is by default a continued message of the user input message
             'level1': '',  # Adjust according to your schema
             'level2': '',  # Adjust according to your schema
