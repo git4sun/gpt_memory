@@ -15,7 +15,7 @@ from langchain_core.prompts import PromptTemplate
 from sentence_transformers import SentenceTransformer
 
 class Memory:
-    def __init__(self, model='deepseek-chat', conf='db_config.json'):
+    def __init__(self, model='deepseek-chat', conf='db_config.json', base_url='https://api.deepseek.com'):
         self.db = DB() 
         self.embd = SentenceTransformer('intfloat/multilingual-e5-large-instruct')
         try:
@@ -26,8 +26,7 @@ class Memory:
             db_url = 'sqlite:///memory.db'
 
         self.db = DB(db_url)
-        self.model = model
-        self.gpt = GPT(model=self.model)
+        self.gpt = GPT(model=model, base_url=base_url)
         self.enc = tt.get_encoding('o200k_base')
         self.sim_threshold = 0.86
         self.same_threshold = 0.98

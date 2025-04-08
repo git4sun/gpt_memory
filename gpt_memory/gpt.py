@@ -8,9 +8,9 @@ from getpass import getpass
 import os
 
 class GPT:
-    def __init__(self, model='deepseek-chat'):
+    def __init__(self, model='deepseek-chat', base_url='https://api.deepseek.com'):
         self.model = model
-        self.base_url = 'https://api.deepseek.com'
+        self.base_url = base_url
         self.api_key = os.environ["OPENAI_API_KEY"] if os.environ.get("OPENAI_API_KEY") else getpass.getpass("Enter your LLM API key: ")
         self.client = ChatOpenAI(api_key=self.api_key, model=self.model, temperature=0, base_url=self.base_url)
 
